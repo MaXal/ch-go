@@ -40,11 +40,6 @@ func (c *Client) cancelQuery() error {
 		return errors.Wrap(err, "flush")
 	}
 
-	// Closing connection to prevent further queries.
-	if err := c.Close(); err != nil {
-		return errors.Wrap(err, "close")
-	}
-
 	return nil
 }
 

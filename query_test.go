@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/ClickHouse/ch-go/cht"
 	"github.com/ClickHouse/ch-go/proto"
 )
 
@@ -914,28 +913,6 @@ func TestClient_Query(t *testing.T) {
 		}), "select table")
 		require.False(t, data.Row(0).Set)
 	})
-	t.Run("NotUTF8", func(t *testing.T) {
-		// https://github.com/ClickHouse/ch-go/issues/226
-		t.Parallel()
-		conn := Conn(t)
-		data := &proto.ColUInt8{}
-
-		err := conn.Do(ctx, Query{
-			Body: "SELECT 错误 as w",
-			Result: proto.Results{
-				{Name: "w", Data: data},
-			},
-		})
-		require.True(t, IsErr(err, proto.ErrSyntaxError), "%v", err)
-		require.Equal(t, 0, data.Rows())
-
-		require.NoError(t, conn.Do(ctx, Query{
-			Body: "SELECT 1 as w",
-			Result: proto.Results{
-				{Name: "w", Data: data},
-			},
-		}), "select table")
-	})
 }
 
 func TestClientCompression(t *testing.T) {
@@ -1381,38 +1358,4 @@ func TestClientInsert(t *testing.T) {
 			return nil
 		},
 	}))
-}
-
-func TestClientQueryCancellation(t *testing.T) {
-	ctx := context.Background()
-	server := cht.New(t)
-	c, err := Dial(ctx, Options{
-		Address: server.TCP,
-	})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = c.Close() })
-	require.NoError(t, c.Ping(ctx))
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	// Performing query cancellation.
-	var (
-		rows int
-		data proto.ColUInt64
-	)
-	require.Error(t, c.Do(ctx, Query{
-		Body:   fmt.Sprintf("SELECT number as v FROM system.numbers LIMIT %d", 2_500_000),
-		Result: proto.Results{{Name: "v", Data: &data}},
-		OnResult: func(_ context.Context, block proto.Block) error {
-			rows += block.Rows
-			if rows >= 500_000 {
-				t.Log("Canceling query")
-				cancel()
-			}
-			return nil
-		},
-	}))
-
-	// Connection should be closed after query cancellation.
-	require.True(t, c.IsClosed())
 }

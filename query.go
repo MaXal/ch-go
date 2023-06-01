@@ -75,12 +75,14 @@ func (c *Client) sendQuery(ctx context.Context, q Query) error {
 			zap.String("query_id", q.QueryID),
 		)
 	}
-	if c.conn == nil {
+	var conn = c.conn
+	localAddr := ""
+	if conn == nil {
 		return ErrClosed
-	}
-
-	if c.conn.LocalAddr() == nil {
-		return ErrClosed
+	} else {
+		if conn.LocalAddr() != nil {
+			localAddr = conn.LocalAddr().String()
+		}
 	}
 
 	c.encode(proto.Query{
@@ -101,7 +103,7 @@ func (c *Client) sendQuery(ctx context.Context, q Query) error {
 
 			InitialUser:    q.InitialUser,
 			InitialQueryID: q.QueryID,
-			InitialAddress: c.conn.LocalAddr().String(),
+			InitialAddress: localAddr,
 			OSUser:         "",
 			ClientHostname: "",
 			ClientName:     c.version.Name,

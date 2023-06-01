@@ -40,6 +40,11 @@ func (c *Client) cancelQuery() error {
 		return errors.Wrap(err, "flush")
 	}
 
+	// Closing connection to prevent further queries.
+	if err := c.Close(); err != nil {
+		return errors.Wrap(err, "close")
+	}
+
 	return nil
 }
 
@@ -70,16 +75,9 @@ func (c *Client) sendQuery(ctx context.Context, q Query) error {
 			zap.String("query_id", q.QueryID),
 		)
 	}
-	var conn = c.conn
-	localAddr := ""
-	if conn == nil {
+	if c.conn == nil {
 		return ErrClosed
-	} else {
-		if conn.LocalAddr() != nil {
-			localAddr = conn.LocalAddr().String()
-		}
 	}
-
 	c.encode(proto.Query{
 		ID:          q.QueryID,
 		Body:        q.Body,
@@ -98,7 +96,7 @@ func (c *Client) sendQuery(ctx context.Context, q Query) error {
 
 			InitialUser:    q.InitialUser,
 			InitialQueryID: q.QueryID,
-			InitialAddress: localAddr,
+			InitialAddress: c.conn.LocalAddr().String(),
 			OSUser:         "",
 			ClientHostname: "",
 			ClientName:     c.version.Name,

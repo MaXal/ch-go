@@ -78,6 +78,11 @@ func (c *Client) sendQuery(ctx context.Context, q Query) error {
 	if c.conn == nil {
 		return ErrClosed
 	}
+
+	if c.conn.LocalAddr() == nil {
+		return ErrClosed
+	}
+
 	c.encode(proto.Query{
 		ID:          q.QueryID,
 		Body:        q.Body,
